@@ -1,0 +1,28 @@
+
+noam chomsky hierarchy (type 3, 2, 1, 0, )
+questions are still important, the answers might change
+
+start with formal Language, use neural network to estimate probabilities 
+
+ax*b | cx*d
+has infinitely many substrings
+
+turing machines might not terminate
+
+great ideas in computer science
+
+stream of numbers, report the kth largest one
+
+cs topics:
+theory of computation
+algorithms 
+
+math topics:
+measure theory probability
+statistical theory
+
+estimator is a function of the data trying to approximate a parameter of the modul
+With an estimator you can then talk about bias, error of the estimator, 
+
+statistical learning theory
+nonparmetric model

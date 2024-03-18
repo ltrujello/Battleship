@@ -1,5 +1,6 @@
 from aiohttp import web
-from battleship.api import create_new_game, create_new_ship, take_turn
+from battleship.api.game_views import create_new_game, take_turn
+from battleship.api.ship_views import create_new_ship
 
 urls = [
     web.post("/v1/battleship/game", create_new_game),

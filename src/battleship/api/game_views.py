@@ -1,12 +1,9 @@
 import aiohttp_apispec
 from aiohttp import web
-from battleship.schema import (
-    CreateNewGameRequest,
-    AddNewShipRequest,
-    TakeTurnRequest,
-    GuessResult,
-)
-from battleship.utils import add_player_ship, run_game_turn
+from battleship.schema import CreateNewGameRequest, TakeTurnRequest
+from battleship.models.game import Game
+from battleship.models.guess import GuessResult
+from battleship.utils import run_game_turn
 
 
 @aiohttp_apispec.request_schema(CreateNewGameRequest)
@@ -18,23 +15,15 @@ async def create_new_game(request):
     player_2_id = payload["player_2_id"]
     initial_player = payload["initial_player"]
 
-    game_id: int = await db.addGame(
-        player_1_id=player_1_id, player_2_id=player_2_id, current_turn=initial_player
+    game = Game(
+        player_1_id=player_1_id,
+        player_2_id=player_2_id,
+        current_player_id=initial_player,
+        status="in_progress",
     )
-    return web.json_response({"game_id": game_id})
+    game = await db.add_game(game)
 
-
-@aiohttp_apispec.request_schema(AddNewShipRequest)
-async def create_new_ship(request):
-    db = request.app["battleship_db"]
-    payload = request["data"]
-
-    player_id = payload["player_id"]
-    game_id = payload["game_id"]
-    ship = payload["ship"]
-
-    await add_player_ship(game_id, player_id, ship, db)
-    return web.HTTPOk()
+    return web.json_response({"game_id": game.id})
 
 
 @aiohttp_apispec.request_schema(TakeTurnRequest)

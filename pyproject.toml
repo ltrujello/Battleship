@@ -8,18 +8,12 @@ version = "0.0.1"
 authors = [
   { name="Luke Trujillo", email="trujillo.luke1@gmail.com" },
 ]
-description = "A gameplay API for battlship"
-readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = [
-    "mkdocstrings[python]>=0.18",
-]
-
 
 [tool.ruff.lint]
 ignore-init-module-imports = true

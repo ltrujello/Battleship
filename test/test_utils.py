@@ -17,24 +17,24 @@ def test_get_ship_coordinates_vertical():
 
 
 @pytest.mark.asyncio
-async def test_evaluate_player_guess(mock_db, mock_ship):
+async def test_evaluate_player_guess_hit(mock_db, mock_ship):
     game_id = 1
     defense_player_id = 1
     guess = (0, 0)
-    mock_ship["start_position_x"] = 0
-    mock_ship["start_position_y"] = 0
-    mock_db.getPlayerShips.return_value = [mock_ship]
-    hit = await evaluate_player_guess(game_id, defense_player_id, guess, mock_ship)
-    assert hit is True
+    mock_ship.start_position_x = 0
+    mock_ship.start_position_y = 0
+    mock_db.get_player_ships.return_value = [mock_ship]
+    hit = await evaluate_player_guess(game_id, defense_player_id, guess, mock_db)
+    assert hit is not None
 
 
 @pytest.mark.asyncio
-async def test_evaluate_player_guess(mock_db, mock_ship):
+async def test_evaluate_player_guess_miss(mock_db, mock_ship):
     game_id = 1
     defense_player_id = 1
     guess = (5, 5)
-    mock_ship["start_position_x"] = 0
-    mock_ship["start_position_y"] = 0
-    mock_db.getPlayerShips.return_value = [mock_ship]
+    mock_ship.start_position_x = 0
+    mock_ship.start_position_y = 0
+    mock_db.get_player_ships.return_value = [mock_ship]
     hit = await evaluate_player_guess(game_id, defense_player_id, guess, mock_db)
     assert hit is None

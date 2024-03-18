@@ -1,7 +1,9 @@
 import logging
 from aiohttp import web
 from typing import Optional
-from battleship.schema import GameStatus, GuessResult
+from battleship.schema import GameStatus
+from battleship.models.ship import Ship
+from battleship.models.guess import Guess, GuessResult
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,13 +26,13 @@ async def add_player_ship(game_id: int, player_id: int, ship: int, db) -> bool:
             raise web.HTTPBadRequest(text=msg)
 
     # Check if the placement overlaps with other ships
-    ships = await db.getPlayerShips(game_id=game_id, player_id=player_id)
+    ships = await db.get_player_ships(game_id=game_id, player_id=player_id)
     for placed_ship in ships:
         other_ship_coordinates = calculate_ship_coordinates(
-            placed_ship["size"],
-            placed_ship["orientation"],
-            placed_ship["start_position_x"],
-            placed_ship["start_position_y"],
+            placed_ship.size,
+            placed_ship.orientation,
+            placed_ship.start_position_x,
+            placed_ship.start_position_y,
         )
         for coord in other_ship_coordinates:
             if coord in ship_coordinates:
@@ -38,7 +40,7 @@ async def add_player_ship(game_id: int, player_id: int, ship: int, db) -> bool:
                 LOGGER.info(msg)
                 raise web.HTTPBadRequest(text=msg)
 
-    await db.addShip(
+    ship = Ship(
         game_id=game_id,
         player_id=player_id,
         size=ship["size"],
@@ -46,6 +48,7 @@ async def add_player_ship(game_id: int, player_id: int, ship: int, db) -> bool:
         start_position_x=ship["start_position_x"],
         start_position_y=ship["start_position_y"],
     )
+    await db.add_ship(ship)
     return True
 
 
@@ -55,19 +58,20 @@ async def evaluate_player_guess(
     """
     Evaluate if the player's guess hit the ship.
     """
-    ships = await db.getPlayerShips(gqme_id=game_id, player_id=defense_player_id)
+    ships = await db.get_player_ships(game_id=game_id, player_id=defense_player_id)
     for ship in ships:
         for coord in calculate_ship_coordinates(
-            ship["size"],
-            ship["orientation"],
-            ship["start_position_x"],
-            ship["start_position_y"],
+            ship.size,
+            ship.orientation,
+            ship.start_position_x,
+            ship.start_position_y,
         ):
             if coord == guess:
                 LOGGER.info(
-                    f"In {game_id=} {defense_player_id=} ship was hit by {coord=}"
+                    f"In {game_id=} {defense_player_id=} {ship.id=} was hit by {coord=}"
                 )
-                return ship["id"]
+                return ship.id
+    LOGGER.info(f"In {game_id=} {defense_player_id=} ship was not hit by {coord=}")
     return None
 
 
@@ -83,41 +87,65 @@ async def run_game_turn(
     Run a single turn of the game.
     """
     # Check if game is completed or if it's the player's turn
-    game = await db.getGame(game_id)
-    if game["status"] == GameStatus.complete.value:
+    game = await db.get_game(game_id)
+    if game.status == GameStatus.complete.value:
         LOGGER.info("Attempted to play but game is over")
         raise web.HTTPBadRequest(text="game is over")
 
-    if game["current_turn"] != offense_player_id:
+    if game.current_player_id != offense_player_id:
         LOGGER.info("Attempted to play but not players turn")
         raise web.HTTPBadRequest(text="not player's turn")
 
     # Evaluate guess
-    guess = (guess_position_x, guess_position_y)
-    ship_id: bool = await evaluate_player_guess(game_id, defense_player_id, guess, db)
+    guess_coords = (guess_position_x, guess_position_y)
+    ship_id: int = await evaluate_player_guess(
+        game_id, defense_player_id, guess_coords, db
+    )
     hit = False if ship_id is None else True
-    await db.addGuess(guess=guess, player_id=offense_player_id, hit=hit)
-    await db.incrementShipHits(id=ship_id)
 
-    # Check if player lost
-    player_lost = await check_if_player_lost(game_id, defense_player_id, db)
-    if player_lost:
-        return GuessResult.victory
-
-    # If not, rotate offense, defense
-    await db.updateGame(game_id=game_id, current_turn=defense_player_id)
     if hit:
-        return GuessResult.hit
-    return GuessResult.miss
+        await db.increment_ship_hits(ship_id=ship_id)
+        # Check if player lost
+        player_lost = await check_if_player_lost(game_id, defense_player_id, db)
+        if player_lost:
+            LOGGER.info(
+                f"{offense_player_id=} hit {defense_player_id=} and won with {guess_coords=}"
+            )
+            result = GuessResult.victory
+        else:
+            LOGGER.info(
+                f"{offense_player_id=} hit {defense_player_id=} with {guess_coords=}"
+            )
+            result = GuessResult.hit
+    else:
+        LOGGER.info(
+            f"{offense_player_id=} missed {defense_player_id=} with {guess_coords=}"
+        )
+        result = GuessResult.miss
+
+    if result in [GuessResult.hit.value, GuessResult.miss.value]:
+        await db.update_game(
+            game_id=game_id, updates={"current_player_id": defense_player_id}
+        )
+
+    guess = Guess(
+        game_id=game_id,
+        player_id=offense_player_id,
+        position_x=guess_position_x,
+        position_y=guess_position_y,
+        result=result,
+    )
+    await db.add_guess(guess)
+    return result
 
 
 async def check_if_player_lost(game_id: int, player_id: int, db) -> bool:
     """
     Check if the player has lost.
     """
-    ships = await db.getPlayerShips(game_id=game_id, player_id=player_id)
+    ships = await db.get_player_ships(game_id=game_id, player_id=player_id)
     for ship in ships:
-        if ship["size"] != ship["hits"]:
+        if ship.size != ship.hits:
             return False
     return True
 
