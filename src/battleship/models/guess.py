@@ -15,7 +15,8 @@ class Guess(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     game_id: Mapped[int] = mapped_column(ForeignKey("game.id"))
-    player_id: Mapped[int] = mapped_column(ForeignKey("player.id"))
+    offense_player_id: Mapped[int] = mapped_column(ForeignKey("player.id"))
+    ship_id: Mapped[int] = mapped_column(ForeignKey("ship.id"), nullable=True)
     position_x: Mapped[int] = mapped_column(Integer)
     position_y: Mapped[int] = mapped_column(Integer)
     result: Mapped[GuessResult] = mapped_column(Enum(GuessResult))

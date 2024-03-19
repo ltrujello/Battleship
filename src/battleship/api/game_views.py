@@ -1,9 +1,14 @@
 import aiohttp_apispec
 from aiohttp import web
-from battleship.schema import CreateNewGameRequest, TakeTurnRequest
+from battleship.schema import (
+    CreateNewGameRequest,
+    TakeTurnRequest,
+    GetPlayerBoard,
+    PlayerBoard,
+)
 from battleship.models.game import Game
 from battleship.models.guess import GuessResult
-from battleship.utils import run_game_turn
+from battleship.utils import run_game_turn, build_player_ship_details
 
 
 @aiohttp_apispec.request_schema(CreateNewGameRequest)
@@ -24,6 +29,18 @@ async def create_new_game(request):
     game = await db.add_game(game)
 
     return web.json_response({"game_id": game.id})
+
+
+@aiohttp_apispec.querystring_schema(GetPlayerBoard)
+@aiohttp_apispec.response_schema(PlayerBoard)
+async def get_player_board(request):
+    params = request["querystring"]
+    game_id = params["game_id"]
+    player_id = params["player_id"]
+
+    player_board: dict = await build_player_ship_details(game_id, player_id)
+
+    return web.json_response(player_board)
 
 
 @aiohttp_apispec.request_schema(TakeTurnRequest)

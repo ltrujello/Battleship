@@ -11,4 +11,5 @@ lint:
 
 .PHONY: test
 test:
-	pytest test
+	pytest test/test_api test/test_utils.py
+

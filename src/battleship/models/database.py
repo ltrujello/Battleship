@@ -18,8 +18,10 @@ DATABASE_URL = (
 
 
 class BattleshipDatabase:
-    def __init__(self):
-        self.engine = create_async_engine(DATABASE_URL, echo=True)
+    def __init__(self, URL=None):
+        if URL is None:
+            URL = DATABASE_URL
+        self.engine = create_async_engine(URL, echo=True)
         self.async_session = async_sessionmaker(self.engine, expire_on_commit=False)
 
     async def add_game(self, game: Game):
@@ -94,3 +96,26 @@ class BattleshipDatabase:
             # Optionally, return the new value of `hits` for the ship
             new_hits_value = result.fetchone()[0]
             return new_hits_value
+
+    async def get_ship_hits(self, ship_ids: list[int]) -> list[Guess]:
+        """
+        Retrieves a list of guesses which successfully hit any of the ships
+        in the given list of ship_ids.
+        """
+        async with self.async_session() as session:
+            stmt = select(Guess).where(Guess.ship_id.in_(ship_ids))
+            result = await session.execute(stmt)
+            hits = result.scalars().all()
+            return hits
+
+    async def get_player_guesses(self, game_id: int, player_id) -> list[Guess]:
+        """
+        Retrieves a list of guesses a player has made so far in a game.
+        """
+        async with self.async_session() as session:
+            stmt = select(Guess).where(
+                Guess.game_id == game_id, Guess.player_id == player_id
+            )
+            result = await session.execute(stmt)
+            ships = result.scalars().all()
+            return ships

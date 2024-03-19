@@ -3,7 +3,7 @@ import json
 from aiohttp import web
 from typing import Optional, Mapping
 from marshmallow import Schema, fields
-from marshmallow.fields import Integer, String, Nested, ValidationError
+from marshmallow.fields import Integer, String, Nested, ValidationError, List, Bool
 from enum import Enum
 
 LOGGER = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ class GameStatus(Enum):
 
 class GuessResult(Enum):
     hit = "hit"
+    sink = "sunk" # TODO
     miss = "miss"
     victory = "victory"
 
@@ -33,6 +34,35 @@ class Ship(Schema):
     )
     start_position_x = Integer(required=True)
     start_position_y = Integer(required=True)
+
+
+class Guess(Schema):
+    position_x = Integer(required=True)
+    position_y = Integer(required=True)
+    result = String(
+        required=True, validate=fields.validate.OneOf([e.value for e in GuessResult])
+    )
+
+
+class Coordinate(Schema):
+    position_x = Integer(required=True)
+    position_y = Integer(required=True)
+    hit = Bool(required=True)
+
+
+class ShipResponse(Schema):
+    size = Integer(required=True)
+    orientation = String(
+        required=True,
+        validate=fields.validate.OneOf([e.value for e in ShipOrientation]),
+    )
+    coordinates = List(Nested(Coordinate), required=True)
+
+
+class CreateNewPlayerRequest(Schema):
+    first_name = String(required=True)
+    last_name = String(required=True)
+    email = String(required=True)
 
 
 class CreateNewGameRequest(Schema):
@@ -60,6 +90,18 @@ class TakeTurnResponse(Schema):
     status = String(
         required=True, validate=fields.validate.OneOf([e.value for e in GameStatus])
     )
+
+
+class GetPlayerBoard(Schema):
+    game_id = Integer(required=True)
+    player_id = Integer(required=True)
+
+
+class PlayerBoard(Schema):
+    game_id = Integer(required=True)
+    player_id = Integer(required=True)
+    ships = List(Nested(ShipResponse), required=True)
+    guesses = List(Nested(Guess), required=True)
 
 
 def server_response_for_validation_error(

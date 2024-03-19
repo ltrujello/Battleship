@@ -1,5 +1,9 @@
 import pytest
-from battleship.utils import calculate_ship_coordinates, evaluate_player_guess
+from battleship.utils import (
+    calculate_ship_coordinates,
+    evaluate_player_guess,
+    check_if_player_lost,
+)
 
 
 def test_get_ship_coordinates_horizontal():
@@ -14,6 +18,30 @@ def test_get_ship_coordinates_vertical():
     expected_coordinates = [(0, 0), (0, 1), (0, 2)]
     actual_coordinates = calculate_ship_coordinates(3, orientation, 0, 0)
     assert actual_coordinates == expected_coordinates
+
+
+@pytest.mark.asyncio
+async def test_check_if_player_lost(mock_db):
+    ships = mock_db.get_player_ships.return_value
+    ships[0].hits = ships[0].size
+    game_id = 1
+    player_id = 1
+    player_lost = await check_if_player_lost(
+        game_id=game_id, player_id=player_id, db=mock_db
+    )
+    assert player_lost is True
+
+
+@pytest.mark.asyncio
+async def test_check_if_player_lost_false(mock_db):
+    ships = mock_db.get_player_ships.return_value
+    ships[0].hits = ships[0].size - 1
+    game_id = 1
+    player_id = 1
+    player_lost = await check_if_player_lost(
+        game_id=game_id, player_id=player_id, db=mock_db
+    )
+    assert player_lost is False
 
 
 @pytest.mark.asyncio

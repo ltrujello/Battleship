@@ -1,6 +1,7 @@
 import logging
 from aiohttp import web
 from typing import Optional
+from collections import defaultdict
 from battleship.schema import GameStatus
 from battleship.models.ship import Ship
 from battleship.models.guess import Guess, GuessResult
@@ -47,6 +48,7 @@ async def add_player_ship(game_id: int, player_id: int, ship: int, db) -> bool:
         orientation=ship["orientation"],
         start_position_x=ship["start_position_x"],
         start_position_y=ship["start_position_y"],
+        hits=0,
     )
     await db.add_ship(ship)
     return True
@@ -98,10 +100,10 @@ async def run_game_turn(
 
     # Evaluate guess
     guess_coords = (guess_position_x, guess_position_y)
-    ship_id: int = await evaluate_player_guess(
+    ship_id: Optional[int] = await evaluate_player_guess(
         game_id, defense_player_id, guess_coords, db
     )
-    hit = False if ship_id is None else True
+    hit: bool = False if ship_id is None else True
 
     if hit:
         await db.increment_ship_hits(ship_id=ship_id)
@@ -130,13 +132,74 @@ async def run_game_turn(
 
     guess = Guess(
         game_id=game_id,
-        player_id=offense_player_id,
+        offense_player_id=offense_player_id,
+        ship_id=ship_id,
         position_x=guess_position_x,
         position_y=guess_position_y,
         result=result,
     )
     await db.add_guess(guess)
     return result
+
+
+async def build_player_ship_details(game_id: int, player_id: int, db) -> dict:
+    """
+    Returns a dictionary detailing a player's ships (coordinates, hits) and their
+    guesses so far.
+    """
+    player_ships = await db.get_player_ships(game_id=game_id, player_id=player_id)
+    ship_ids: list[int] = [ship.id for ship in player_ships]
+    ship_hits: list[Guess] = await db.get_ship_hits(ship_ids=ship_ids)
+
+    # Construct key, value map from ship_id, list of coordinates hitting the ship
+    hits_by_ship = defaultdict(list)
+    for guess in ship_hits:
+        hits_by_ship[guess.ship_id].append((guess.position_x, guess.position_y))
+
+    # Construct a list of ships detailing their coordinates
+    ships: list = []
+    for ship in player_ships:
+        coordinates: list[tuple] = calculate_ship_coordinates(
+            ship.size,
+            ship.orientation,
+            ship.start_position_x,
+            ship.start_position_y,
+        )
+        coordinate_details = []
+        for coordinate in coordinates:
+            coordinate_details.append(
+                {
+                    "position_x": coordinate[0],
+                    "position_y": coordinate[1],
+                    "hit": True if coordinate in hits_by_ship[ship.id] else False,
+                }
+            )
+        ships.append(
+            {
+                "size": ship.size,
+                "orientation": ship.orientation,
+                "coordinates": coordinate_details,
+            }
+        )
+
+    player_guesses: list[Guess] = await db.get_player_guesses(
+        game_id=game_id, player_id=player_id
+    )
+    guesses = [
+        {
+            "position_x": guess.position_x,
+            "position_y": guess.position_y,
+            "hit": False if guess.ship_id is None else True,
+        }
+        for guess in player_guesses
+    ]
+
+    return {
+        "game_id": game_id,
+        "player_id": player_id,
+        "ships": ships,
+        "guesses": guesses,
+    }
 
 
 async def check_if_player_lost(game_id: int, player_id: int, db) -> bool:
@@ -151,19 +214,14 @@ async def check_if_player_lost(game_id: int, player_id: int, db) -> bool:
 
 
 def calculate_ship_coordinates(
-    size: int, orientation: int, start_position_x: int, start_position_y: int
+    size: int, orientation: str, start_position_x: int, start_position_y: int
 ) -> list[tuple[int, int]]:
     """
     Calculate the coordinates of the ship.
     """
-    coordinates = []
-    for i in range(size):
-        if orientation == "horizontal":
-            point = (start_position_x + i, start_position_y)
-        else:  # orientation == "vertical"
-            point = (start_position_x, start_position_y + i)
-        coordinates.append(point)
-    return coordinates
+    if orientation == "horizontal":
+        return [(start_position_x + i, start_position_y) for i in range(size)]
+    return [(start_position_x, start_position_y + i) for i in range(size)]
 
 
 def is_within_board(point: tuple[int, int]) -> bool:

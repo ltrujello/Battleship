@@ -3,7 +3,7 @@ import os
 from aiohttp import web
 from aiohttp_apispec import validation_middleware, setup_aiohttp_apispec
 from battleship.api.urls import urls
-from battleship.models.database import BattleshipDatabase
+from battleship.models.database import BattleshipDatabase, DATABASE_URL
 from battleship.schema import server_response_for_validation_error
 
 LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "INFO")
@@ -16,7 +16,7 @@ if __name__ == "__main__":
         middlewares=[validation_middleware]
     )
     app.add_routes(urls)
-    app["battleship_db"] = BattleshipDatabase()
+    app["battleship_db"] = BattleshipDatabase(DATABASE_URL)
 
     setup_aiohttp_apispec(
         app,

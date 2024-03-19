@@ -80,6 +80,15 @@ def mock_player_ships(mock_ship):
 
 
 @pytest.fixture
+def create_new_player_request():
+    return {
+        "first_name": "foo",
+        "last_name": "bar",
+        "email": "foo@bar.com",
+    }
+
+
+@pytest.fixture
 def turn_request():
     return {
         "game_id": 1,
