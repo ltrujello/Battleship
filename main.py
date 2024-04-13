@@ -1,5 +1,6 @@
 import logging
 import os
+from collections import defaultdict
 from aiohttp import web
 from aiohttp_apispec import validation_middleware, setup_aiohttp_apispec
 from battleship.api.urls import urls
@@ -17,6 +18,7 @@ if __name__ == "__main__":
     )
     app.add_routes(urls)
     app["battleship_db"] = BattleshipDatabase(DATABASE_URL)
+    app["websockets"] = defaultdict(set)
 
     setup_aiohttp_apispec(
         app,

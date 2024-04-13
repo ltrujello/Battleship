@@ -156,6 +156,7 @@ async def test_place_ship_outside_board(test_session, battleship_client):
     )
     assert ret.status == 400
 
+
 @pytest.mark.asyncio
 async def test_place_ship_overlaps(test_session, battleship_client):
     # Set up player_1 ships
@@ -196,7 +197,6 @@ async def test_take_turn_hits(test_session, battleship_client):
     data = await ret.json()
     assert data["current_player_id"] == defense_player_id
     assert data["result"] == "hit"
-
 
 
 @pytest.mark.asyncio

@@ -95,7 +95,9 @@ async def run_game_turn(
         raise web.HTTPBadRequest(text="game is over")
 
     if game.current_player_id != offense_player_id:
-        LOGGER.info("Attempted to play but not players turn")
+        LOGGER.info(
+            f"Player {offense_player_id=} attempted to play, but it's {game.current_player_id=} turn"
+        )
         raise web.HTTPBadRequest(text="not player's turn")
 
     # Evaluate guess

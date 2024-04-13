@@ -21,7 +21,7 @@ class GameStatus(Enum):
 
 class GuessResult(Enum):
     hit = "hit"
-    sink = "sunk" # TODO
+    sink = "sunk"  # TODO
     miss = "miss"
     victory = "victory"
 

@@ -7,11 +7,11 @@ from battleship.models.game import Game
 from battleship.models.ship import Ship
 from battleship.models.guess import Guess
 
-DB_USERNAME = "luke"
-DB_PASSWD = "password"
+DB_USERNAME = "testuser"
+DB_PASSWD = "testpassword"
 DB_HOST = "localhost"
 DB_PORT = "5432"
-DB_NAME = "mytestdb"
+DB_NAME = "foo"
 DATABASE_URL = (
     f"postgresql+asyncpg://{DB_USERNAME}:{DB_PASSWD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
