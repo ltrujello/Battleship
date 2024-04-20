@@ -9,7 +9,7 @@ from battleship.models.guess import Guess, GuessResult
 LOGGER = logging.getLogger(__name__)
 
 
-async def add_player_ship(game_id: int, player_id: int, ship: int, db) -> bool:
+async def add_player_ship(game_id: int, player_id: int, ship: dict, db) -> bool:
     """
     Add a ship to the player's board.
     """
@@ -37,7 +37,9 @@ async def add_player_ship(game_id: int, player_id: int, ship: int, db) -> bool:
         )
         for coord in other_ship_coordinates:
             if coord in ship_coordinates:
-                msg = f"Attempted to place {ship=} but this overlaps with {placed_ship=} in {ships=}"
+                msg = (
+                    f"Attempted to place {ship=} but this overlaps with {placed_ship=}"
+                )
                 LOGGER.info(msg)
                 raise web.HTTPBadRequest(text=msg)
 
@@ -51,7 +53,7 @@ async def add_player_ship(game_id: int, player_id: int, ship: int, db) -> bool:
         hits=0,
     )
     await db.add_ship(ship)
-    return True
+    return ship
 
 
 async def evaluate_player_guess(
@@ -144,63 +146,54 @@ async def run_game_turn(
     return result
 
 
-async def build_player_ship_details(game_id: int, player_id: int, db) -> dict:
+async def build_player_game_details(game_id: int, player_id: int, db) -> dict:
     """
     Returns a dictionary detailing a player's ships (coordinates, hits) and their
     guesses so far.
     """
-    player_ships = await db.get_player_ships(game_id=game_id, player_id=player_id)
-    ship_ids: list[int] = [ship.id for ship in player_ships]
-    ship_hits: list[Guess] = await db.get_ship_hits(ship_ids=ship_ids)
-
-    # Construct key, value map from ship_id, list of coordinates hitting the ship
-    hits_by_ship = defaultdict(list)
-    for guess in ship_hits:
-        hits_by_ship[guess.ship_id].append((guess.position_x, guess.position_y))
-
-    # Construct a list of ships detailing their coordinates
-    ships: list = []
-    for ship in player_ships:
-        coordinates: list[tuple] = calculate_ship_coordinates(
-            ship.size,
-            ship.orientation,
-            ship.start_position_x,
-            ship.start_position_y,
-        )
-        coordinate_details = []
-        for coordinate in coordinates:
-            coordinate_details.append(
-                {
-                    "position_x": coordinate[0],
-                    "position_y": coordinate[1],
-                    "hit": True if coordinate in hits_by_ship[ship.id] else False,
-                }
-            )
-        ships.append(
+    game_details: dict = await db.get_game_details(game_id, player_id)
+    game = {
+        "player_1_id": game_details["game"].player_1_id,
+        "player_2_id": game_details["game"].player_2_id,
+        "current_player_id": game_details["game"].current_player_id,
+        "status": game_details["game"].status,
+    }
+    player_ships = []
+    for ship in game_details["player_ships"]:
+        player_ships.append(
             {
                 "size": ship.size,
                 "orientation": ship.orientation,
-                "coordinates": coordinate_details,
+                "start_position_x": ship.start_position_x,
+                "start_position_y": ship.start_position_y,
             }
         )
 
-    player_guesses: list[Guess] = await db.get_player_guesses(
-        game_id=game_id, player_id=player_id
-    )
-    guesses = [
-        {
-            "position_x": guess.position_x,
-            "position_y": guess.position_y,
-            "hit": False if guess.ship_id is None else True,
-        }
-        for guess in player_guesses
-    ]
+    player_guesses = []
+    for guess in game_details["player_guesses"]:
+        player_guesses.append(
+            {
+                "position_x": guess.position_x,
+                "position_y": guess.position_y,
+                "result": guess.result,
+            }
+        )
+
+    enemy_guesses = []
+    for guess in game_details["enemy_guesses"]:
+        enemy_guesses.append(
+            {
+                "position_x": guess.position_x,
+                "position_y": guess.position_y,
+                "result": guess.result,
+            }
+        )
 
     return {
-        "game_id": game_id,
-        "player_id": player_id,
-        "ships": ships,
-        "guesses": guesses,
+        "game": game,
+        "player_ships": player_ships,
+        "player_guesses": player_guesses,
+        "enemy_guesses": enemy_guesses,
     }
 
 
@@ -233,3 +226,18 @@ def is_within_board(point: tuple[int, int]) -> bool:
     x = point[0]
     y = point[1]
     return 0 <= x <= 9 and 0 <= y <= 9
+
+
+async def get_player_games(player_id, db):
+    games = await db.get_player_games(player_id=player_id)
+    games_list: list[dict] = []
+    for game in games:
+        games_list.append(
+            {
+                "game_id": game.id,
+                "players": [game.player_1_id, game.player_2_id],
+                "status": game.status,
+                "current_player_id": game.current_player_id,
+            }
+        )
+    return games_list

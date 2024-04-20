@@ -1,7 +1,8 @@
+import logging
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy import select, update
+from sqlalchemy import select, update, or_
 from battleship.models.player import Player
 from battleship.models.game import Game
 from battleship.models.ship import Ship
@@ -15,6 +16,8 @@ DB_NAME = "foo"
 DATABASE_URL = (
     f"postgresql+asyncpg://{DB_USERNAME}:{DB_PASSWD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 class BattleshipDatabase:
@@ -79,6 +82,18 @@ class BattleshipDatabase:
             result = await session.get(Player, player_id)
         return result
 
+    async def get_player_games(self, player_id: int):
+        async with self.async_session() as session:
+            stmt = select(Game).where(
+                or_(
+                    Game.player_1_id == player_id,
+                    Game.player_2_id == player_id,
+                )
+            )
+            result = await session.execute(stmt)
+            games = result.scalars().all()
+        return games
+
     async def increment_ship_hits(self, ship_id: int) -> int:
         # Construct an update statement that increments the `hits` column atomically
         async with self.async_session() as session:
@@ -119,3 +134,45 @@ class BattleshipDatabase:
             result = await session.execute(stmt)
             ships = result.scalars().all()
             return ships
+
+    async def get_game_details(self, game_id: int, player_id) -> list[Guess]:
+        """
+        Queries the database to construct game details for a player
+        """
+        async with self.async_session() as session:
+            # Fetch the game
+            game = await session.get(Game, game_id)
+            if game is None:
+                LOGGER.error(f"Failed to locate {game_id=} in database")
+                return None
+            enemy_player_id: int = (
+                game.player_1_id if game.player_1_id != player_id else game.player_2_id
+            )
+
+            # Fetch player's ships
+            stmt = select(Ship).where(
+                Ship.game_id == game_id, Ship.player_id == player_id
+            )
+            result = await session.execute(stmt)
+            player_ships = result.scalars().all()
+
+            # Fetch player's guess history
+            stmt = select(Guess).where(
+                Guess.game_id == game_id, Guess.offense_player_id == player_id
+            )
+            result = await session.execute(stmt)
+            player_guesses = result.scalars().all()
+
+            # Fetch enemy's guess history
+            stmt = select(Guess).where(
+                Guess.game_id == game_id, Guess.offense_player_id == enemy_player_id
+            )
+            result = await session.execute(stmt)
+            enemy_guesses = result.scalars().all()
+
+        return {
+            "game": game,
+            "player_ships": player_ships,
+            "player_guesses": player_guesses,
+            "enemy_guesses": enemy_guesses,
+        }

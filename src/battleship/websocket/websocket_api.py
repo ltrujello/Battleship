@@ -1,4 +1,3 @@
-import json
 import logging
 from aiohttp import web, WSMsgType
 from battleship.websocket.handler_map import handlers
@@ -12,7 +11,7 @@ async def websocket_handler(request):
 
     async for msg in ws:
         LOGGER.info(f"Receiving {msg.data=} from incoming websocket connection")
-        payload = json.loads(msg.data)
+        payload = msg.json()
         user_id = payload["user_id"]
         request.app["websockets"][user_id].add(ws)
         LOGGER.info(f"{request.app['websockets']=}")
@@ -28,14 +27,14 @@ async def websocket_handler(request):
                     "result": "failure",
                     "msg": e.text,
                 }
-                await ws.send_str(json.dumps(resp))
+                await ws.send_json(resp)
             except Exception as e:
                 resp = {
                     "type": "unknown_error",
                     "result": "failure",
                     "msg": e,
                 }
-                await ws.send_str(json.dumps(resp))
+                await ws.send_json(resp)
 
         elif msg.type == WSMsgType.CLOSE:
             await ws.close()
@@ -43,6 +42,7 @@ async def websocket_handler(request):
 
         elif msg.type == WSMsgType.ERROR:
             print("ws connection closed with exception %s" % ws.exception())
+            request.app["websockets"][user_id].remove(ws)
 
     print("websocket connection closed")
     return ws

@@ -5,10 +5,15 @@ from battleship.schema import (
     TakeTurnRequest,
     GetPlayerBoard,
     PlayerBoard,
+    PlayerId,
 )
 from battleship.models.game import Game
 from battleship.models.guess import GuessResult
-from battleship.utils import run_game_turn, build_player_ship_details
+from battleship.utils import (
+    run_game_turn,
+    get_player_games,
+    build_player_game_details,
+)
 
 
 @aiohttp_apispec.request_schema(CreateNewGameRequest)
@@ -33,14 +38,27 @@ async def create_new_game(request):
 
 @aiohttp_apispec.querystring_schema(GetPlayerBoard)
 @aiohttp_apispec.response_schema(PlayerBoard)
-async def get_player_board(request):
+async def get_game_details_for_player(request):
     params = request["querystring"]
     game_id = params["game_id"]
     player_id = params["player_id"]
+    db = request.app["battleship_db"]
 
-    player_board: dict = await build_player_ship_details(game_id, player_id)
+    game_details: dict = await build_player_game_details(game_id, player_id, db)
 
-    return web.json_response(player_board)
+    return web.json_response(game_details)
+
+
+@aiohttp_apispec.querystring_schema(PlayerId)
+# @aiohttp_apispec.response_schema(PlayerBoard)
+async def fetch_player_games(request):
+    params = request["querystring"]
+    player_id = params["player_id"]
+    db = request.app["battleship_db"]
+
+    games: list = await get_player_games(player_id, db)
+
+    return web.json_response({"games": games})
 
 
 @aiohttp_apispec.request_schema(TakeTurnRequest)

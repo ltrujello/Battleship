@@ -3,11 +3,11 @@ default: black lint test
 
 .PHONY: black
 black:
-	black test src
+	black test src client
 
 .PHONY: lint
 lint:
-	ruff check src/battleship/*.py        
+	ruff check src/battleship/*.py client/*.py
 
 .PHONY: test
 test:

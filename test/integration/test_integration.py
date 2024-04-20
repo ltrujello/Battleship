@@ -94,7 +94,7 @@ async def test_create_players(
 async def test_create_new_game(test_session, battleship_client, new_game_request):
     # Create a game
     player_1_id = test_session["player_1_id"]
-    player_2_id = test_session["player_1_id"]
+    player_2_id = test_session["player_2_id"]
     new_game_request = {
         "player_1_id": player_1_id,
         "player_2_id": player_2_id,
@@ -218,3 +218,13 @@ async def test_take_turn_misses(test_session, battleship_client):
     data = await ret.json()
     assert data["current_player_id"] == defense_player_id
     assert data["result"] == "miss"
+
+
+@pytest.mark.asyncio
+async def test_get_player_games(test_session, battleship_client):
+    player_id = test_session["player_1_id"]
+    params = {"player_id": player_id}
+    ret = await battleship_client.get("/v1/battleship/player/games", params=params)
+    assert ret.status == 200
+    data = await ret.json()
+    assert len(data) > 0

@@ -92,6 +92,10 @@ class TakeTurnResponse(Schema):
     )
 
 
+class PlayerId(Schema):
+    player_id = Integer(required=True)
+
+
 class GetPlayerBoard(Schema):
     game_id = Integer(required=True)
     player_id = Integer(required=True)
@@ -102,6 +106,10 @@ class PlayerBoard(Schema):
     player_id = Integer(required=True)
     ships = List(Nested(ShipResponse), required=True)
     guesses = List(Nested(Guess), required=True)
+
+
+# class PlayerGames(Schema):
+#     games = List(Nested(Game), required=True)
 
 
 def server_response_for_validation_error(
