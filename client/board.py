@@ -96,7 +96,6 @@ class Map:
         y: int,
         result: str,
     ):
-        x, y = self.transform(x, y)
         if result == "hit":
             self.update_position(x, y, "X")
         else:

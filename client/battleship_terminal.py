@@ -76,17 +76,17 @@ class BattleshipTerminal:
     async def take_turn(self, guess_position_x: int, guess_position_y: int):
         payload = {
             "action": "take_turn",
-            "guess_position_x": guess_position_x,
-            "guess_position_y": guess_position_y,
+            "position_x": guess_position_x,
+            "position_y": guess_position_y,
         }
         await self.send_msg(payload)
 
     async def handle_guess_result(self, payload) -> None:
         guesses = [
             {
-                "guess_result": payload["guess_result"],
-                "start_position_x": payload["start_position_x"],
-                "start_position_y": payload["start_position_y"],
+                "result": payload["result"],
+                "position_x": payload["position_x"],
+                "position_y": payload["position_y"],
             }
         ]
         self.board.add_players_guess_history(guesses)
@@ -94,9 +94,9 @@ class BattleshipTerminal:
     async def handle_incoming_enemy_guess_result(self, payload) -> None:
         guesses = [
             {
-                "guess_result": payload["guess_result"],
-                "start_position_x": payload["start_position_x"],
-                "start_position_y": payload["start_position_y"],
+                "result": payload["result"],
+                "position_x": payload["position_x"],
+                "position_y": payload["position_y"],
             }
         ]
         self.board.add_enemys_guess_history(guesses)
@@ -135,10 +135,22 @@ async def main():
         await battleship_game.load_game()
         # Listen
         async for msg in ws:
+            os.system("cls" if os.name == "nt" else "clear")
+
             print("Message received from server:", msg)
-            battleship_game.draw_board()
             if msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
                 break
+            payload = msg.json()
+            if payload["type"] == "enemy_guess":
+                await battleship_game.handle_incoming_enemy_guess_result(payload)
+            elif payload["type"] == "guess_result":
+                await battleship_game.handle_guess_result(payload)
+            elif payload["type"] == "new_ship":
+                await battleship_game.handle_create_new_ship_result(payload)
+            else:
+                print(f"Received unexpected {payload=}")
+
+            battleship_game.draw_board()
 
     await session.close()
 

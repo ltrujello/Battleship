@@ -1,7 +1,6 @@
 import logging
 from aiohttp import web
 from typing import Optional
-from collections import defaultdict
 from battleship.schema import GameStatus
 from battleship.models.ship import Ship
 from battleship.models.guess import Guess, GuessResult
@@ -54,6 +53,61 @@ async def add_player_ship(game_id: int, player_id: int, ship: dict, db) -> bool:
     )
     await db.add_ship(ship)
     return ship
+
+
+async def move_ship(
+    game_id: int,
+    player_id: int,
+    ship_id: int,
+    start_position_x: int,
+    start_position_y: int,
+    db,
+) -> Ship:
+    """
+    Move a ship on the player's board.
+    """
+    # Check if ship exists. TODO Make sure it belongs to the player
+    ship = await db.get_ship(ship_id=ship_id)
+    # Check if ship can be moved to new location
+    # TODO put this in util func, reduce duplicate code
+    ship_coordinates = calculate_ship_coordinates(
+        ship.size,
+        ship.orientation,
+        start_position_x,
+        start_position_y,
+    )
+    for coordinate in ship_coordinates:
+        if not is_within_board(coordinate):
+            msg = f"Attempted to place {ship=} with invalid {ship_coordinates=} as {coordinate=} is outside of board"
+            LOGGER.info(msg)
+            raise web.HTTPBadRequest(text=msg)
+
+    # Check if the placement overlaps with other ships
+    ships = await db.get_player_ships(game_id=game_id, player_id=player_id)
+    for placed_ship in ships:
+        other_ship_coordinates = calculate_ship_coordinates(
+            placed_ship.size,
+            placed_ship.orientation,
+            placed_ship.start_position_x,
+            placed_ship.start_position_y,
+        )
+        for coord in other_ship_coordinates:
+            if coord in ship_coordinates:
+                msg = (
+                    f"Attempted to place {ship=} but this overlaps with {placed_ship=}"
+                )
+                LOGGER.info(msg)
+                raise web.HTTPBadRequest(text=msg)
+
+    # Proceed with update
+    updated_ship = await db.update_ship(
+        ship_id=ship_id,
+        updates={
+            "start_position_x": start_position_x,
+            "start_position_y": start_position_y,
+        },
+    )
+    return updated_ship
 
 
 async def evaluate_player_guess(
@@ -162,6 +216,7 @@ async def build_player_game_details(game_id: int, player_id: int, db) -> dict:
     for ship in game_details["player_ships"]:
         player_ships.append(
             {
+                "id": ship.id,
                 "size": ship.size,
                 "orientation": ship.orientation,
                 "start_position_x": ship.start_position_x,

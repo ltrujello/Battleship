@@ -61,6 +61,22 @@ class BattleshipDatabase:
             await session.refresh(ship)
         return ship
 
+    async def get_ship(self, ship_id: int):
+        async with self.async_session() as session:
+            result = await session.get(Ship, ship_id)
+        return result
+
+    async def update_ship(self, ship_id: int, updates: dict) -> Ship:
+        async with self.async_session() as session:
+            # Update the player with the provided updates
+            result = await session.execute(
+                update(Ship).where(Ship.id == ship_id).values(**updates).returning(Ship)
+            )
+            await session.commit()
+            updated_ship = result.fetchone()[0]
+
+        return updated_ship
+
     async def add_guess(self, guess: Guess):
         async with self.async_session() as session:
             session.add(guess)

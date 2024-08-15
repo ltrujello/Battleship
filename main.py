@@ -1,6 +1,7 @@
 import logging
 import os
 from collections import defaultdict
+from aiohttp_middlewares.cors import cors_middleware
 from aiohttp import web
 from aiohttp_apispec import validation_middleware, setup_aiohttp_apispec
 from battleship.api.urls import urls
@@ -11,10 +12,14 @@ LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "INFO")
 logging.basicConfig(level=getattr(logging, LOGGING_LEVEL))
 LOGGER = logging.getLogger(__name__)
 
+
 if __name__ == "__main__":
     LOGGER.info("Starting battleship server...")
     app = web.Application(
-        middlewares=[validation_middleware]
+        middlewares=[
+            cors_middleware(allow_all=True),
+            validation_middleware
+            ]
     )
     app.add_routes(urls)
     app["battleship_db"] = BattleshipDatabase(DATABASE_URL)
